@@ -11,6 +11,7 @@ export const ProductList: React.FC = () => {
   const [filteredCount, setFilteredCount] = useState(0);
   const [filters, setFilters] = useState<ProductFilters>({});
   const [loading, setLoading] = useState(true);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // Form state
@@ -22,14 +23,32 @@ export const ProductList: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
 
-  // Fetch products with filters
+  // Debounced filters to prevent API calls on every keystroke
+  const [debouncedFilters, setDebouncedFilters] = useState<ProductFilters>({});
+
+  // Debounce the filters (especially search) to avoid excessive API calls
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedFilters(filters);
+    }, 300); // 300ms delay
+
+    return () => clearTimeout(timer);
+  }, [filters]);
+
+  // Fetch products with debounced filters
   const fetchProducts = useCallback(async () => {
     try {
-      setLoading(true);
+      // Use different loading states for initial load vs search/filter updates
+      const isInitialLoad = products.length === 0;
+      if (isInitialLoad) {
+        setLoading(true);
+      } else {
+        setSearchLoading(true);
+      }
       setError(null);
       
       const filtersWithPagination = {
-        ...filters,
+        ...debouncedFilters,
         limit: itemsPerPage,
         offset: (currentPage - 1) * itemsPerPage
       };
@@ -43,17 +62,18 @@ export const ProductList: React.FC = () => {
       console.error('Error fetching products:', err);
     } finally {
       setLoading(false);
+      setSearchLoading(false);
     }
-  }, [filters, currentPage]);
+  }, [debouncedFilters, currentPage, products.length]);
 
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
 
-  // Reset to first page when filters change
+  // Reset to first page when debounced filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [filters]);
+  }, [debouncedFilters]);
 
   const handleFiltersChange = (newFilters: ProductFilters) => {
     setFilters(newFilters);
@@ -168,10 +188,11 @@ export const ProductList: React.FC = () => {
         onClearFilters={handleClearFilters}
       />
 
-      {/* Loading Overlay */}
-      {loading && products.length > 0 && (
-        <div className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-40">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      {/* Subtle Search Loading Indicator */}
+      {searchLoading && (
+        <div className="mb-4 flex items-center justify-center py-4">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2"></div>
+          <span className="text-gray-600">Searching...</span>
         </div>
       )}
 
