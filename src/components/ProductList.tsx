@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { Product, ProductFilters, CreateProductData, UpdateProductData } from '../types/Product';
 import { productApi } from '../api/productApi';
 import { ProductCard } from './ProductCard';
@@ -22,6 +22,9 @@ export const ProductList: React.FC = () => {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
+  
+  // Track initial load to avoid dependency issues
+  const isInitialLoadRef = useRef(true);
 
   // Debounced filters to prevent API calls on every keystroke
   const [debouncedFilters, setDebouncedFilters] = useState<ProductFilters>({});
@@ -39,8 +42,7 @@ export const ProductList: React.FC = () => {
   const fetchProducts = useCallback(async () => {
     try {
       // Use different loading states for initial load vs search/filter updates
-      const isInitialLoad = products.length === 0;
-      if (isInitialLoad) {
+      if (isInitialLoadRef.current) {
         setLoading(true);
       } else {
         setSearchLoading(true);
@@ -57,6 +59,9 @@ export const ProductList: React.FC = () => {
       setProducts(response.products);
       setTotalCount(response.total_count);
       setFilteredCount(response.filtered_count);
+      
+      // Mark initial load as complete
+      isInitialLoadRef.current = false;
     } catch (err) {
       setError('Failed to fetch products. Please try again.');
       console.error('Error fetching products:', err);
@@ -64,7 +69,7 @@ export const ProductList: React.FC = () => {
       setLoading(false);
       setSearchLoading(false);
     }
-  }, [debouncedFilters, currentPage, products.length]);
+  }, [debouncedFilters, currentPage]);
 
   useEffect(() => {
     fetchProducts();
